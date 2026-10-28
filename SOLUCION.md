@@ -134,7 +134,7 @@ para copiar. Cómo lo abordaría en producción:
 | HU-4 Armar paquete | **Hecho** | Checklist, copia de soportes, borrador sin datos bancarios, gate de envío. |
 | HU-5 Manejo de errores | **Hecho** | Toda tool devuelve `{ok}`/`{ok:false,error}` y nunca lanza; el caso malo no frena los demás. |
 | Bonus módulo | **Hecho** | `modulo/` reexporta las mismas tools y reusa prompt/conocimiento. |
-| Chat con modelo real | **Parcial** | Verificado el ciclo con adaptador simulado; con `ANTHROPIC_API_KEY` responde en vivo. Falta despliegue público (ver README). |
+| Chat con modelo real | **Hecho** | Desplegado y verificado en vivo en Render: <https://agente-registro-proveedor-ln9g.onrender.com> |
 
 Para producción faltaría: integración real con correo/SharePoint/firma, un dueño del
 dato que mantenga el maestro, persistencia de sesiones y pruebas automatizadas del ciclo.

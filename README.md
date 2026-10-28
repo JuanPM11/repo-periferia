@@ -104,5 +104,7 @@ Equivalente en Railway/Fly.io: mismo build/start y la misma variable de entorno.
 
 ## Link de prueba
 
-> URL pública: _(pegar aquí tras el deploy)_. Mientras tanto, corre en local con los
-> comandos de arriba.
+**URL pública:** <https://agente-registro-proveedor-ln9g.onrender.com>
+
+Desplegado en Render (plan Free). La instancia se duerme con inactividad, así que el
+primer request tras un rato puede tardar ~50s en despertar; los siguientes son rápidos.
