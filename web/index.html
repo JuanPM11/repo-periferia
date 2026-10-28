@@ -21,6 +21,34 @@
     background: var(--tenue); margin-right: 5px; vertical-align: middle; }
   .dot.ok { background: var(--ok); } .dot.no { background: var(--err); }
   main { max-width: 820px; margin: 0 auto; padding: 20px; }
+
+  /* Panel de validación de casos */
+  .casos { background: var(--panel); border: 1px solid var(--borde); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 16px; }
+  .casos h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .4px;
+    color: var(--tenue); margin: 0 0 4px; }
+  .casos .sub { color: var(--tenue); font-size: 12px; margin: 0 0 12px; }
+  .caso { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+    border-top: 1px solid var(--borde); }
+  .caso:first-of-type { border-top: 0; }
+  .caso .estado { width: 10px; height: 10px; border-radius: 50%; background: var(--tenue);
+    flex: none; }
+  .caso.validando .estado { background: var(--acento); animation: pulso 1s ease-in-out infinite; }
+  .caso.validado .estado { background: var(--ok); }
+  .caso.error .estado { background: var(--err); }
+  @keyframes pulso { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .caso .nombre { font-size: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .caso.validado .nombre { color: var(--ok); }
+  .caso .check { color: var(--ok); font-weight: 700; }
+  .caso .acciones { margin-left: auto; display: flex; gap: 8px; }
+  .caso button { font-size: 13px; border: 0; border-radius: 8px; padding: 6px 12px;
+    cursor: pointer; }
+  .caso button.validar { background: var(--acento); color: #06142e; font-weight: 600; }
+  .caso button.cancelar { background: var(--panel2); color: var(--texto); border: 1px solid var(--err); }
+  .caso button.revalidar { background: var(--panel2); color: var(--tenue); border: 1px solid var(--borde); }
+  .caso button:disabled { opacity: .45; cursor: not-allowed; }
+  .casos .resumen { color: var(--tenue); font-size: 12px; margin-top: 10px; }
+
   #chat { display: flex; flex-direction: column; gap: 14px; padding-bottom: 20px; }
   .msg { max-width: 92%; padding: 11px 14px; border-radius: 12px; white-space: pre-wrap;
     word-wrap: break-word; }
@@ -44,9 +72,9 @@
     padding: 14px 0; border-top: 1px solid var(--borde); }
   textarea { flex: 1; resize: none; background: var(--panel); color: var(--texto);
     border: 1px solid var(--borde); border-radius: 10px; padding: 11px 13px; font: inherit; }
-  button { background: var(--acento); color: #06142e; border: 0; border-radius: 10px;
+  button.enviar { background: var(--acento); color: #06142e; border: 0; border-radius: 10px;
     padding: 0 18px; font-weight: 600; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.enviar:disabled { opacity: .5; cursor: not-allowed; }
   .hint { color: var(--tenue); font-size: 12px; margin: 0 0 14px; }
   .confirm-acciones { display: flex; gap: 8px; margin-top: 10px; }
   .confirm-acciones button.sec { background: var(--panel2); color: var(--texto); border: 1px solid var(--borde); }
@@ -58,12 +86,20 @@
   <span class="salud"><span id="dot" class="dot"></span><span id="salud-txt">conectando…</span></span>
 </header>
 <main>
-  <p class="hint">Ejemplo: <em>Procesa el caso "ec-corp-andina". Dime qué campos quedaron llenos,
-    cuáles faltan, si el paquete está listo para firma y qué soportes debo actualizar. No envíes nada todavía.</em></p>
+  <section class="casos" id="panel-casos" hidden>
+    <h2>Casos por validar</h2>
+    <p class="sub">Valida cada caso contra el agente. Al terminar con éxito se marca en verde.
+      Si te equivocaste de caso mientras valida, usa <strong>Cancelar</strong>.</p>
+    <div id="lista-casos"></div>
+    <p class="resumen" id="resumen-casos"></p>
+  </section>
+
+  <p class="hint">También puedes escribir libremente abajo. Ejemplo: <em>Procesa el caso "ec-corp-andina".
+    Dime qué campos quedaron llenos, cuáles faltan y si está listo para firma. No envíes nada todavía.</em></p>
   <div id="chat"></div>
   <form id="form">
     <textarea id="input" rows="2" placeholder="Escribe tu mensaje… (Enter para enviar)"></textarea>
-    <button id="enviar" type="submit">Enviar</button>
+    <button id="enviar" class="enviar" type="submit">Enviar</button>
   </form>
 </main>
 
@@ -72,7 +108,22 @@
   const form = document.getElementById("form");
   const input = document.getElementById("input");
   const btn = document.getElementById("enviar");
+  const listaCasos = document.getElementById("lista-casos");
+  const panelCasos = document.getElementById("panel-casos");
+  const resumenCasos = document.getElementById("resumen-casos");
+
   let sessionId = null;
+  let peticionActiva = null;     // AbortController de la petición en curso
+  const filas = new Map();       // caso -> { el, btnValidar, btnCancelar }
+
+  const LS_KEY = "casos-validados";
+  function leerValidados() {
+    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) || "[]")); }
+    catch { return new Set(); }
+  }
+  function guardarValidados(set) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify([...set])); } catch {}
+  }
 
   // Salud del backend (sin exponer la clave).
   fetch("/api/health").then(r => r.json()).then(d => {
@@ -82,6 +133,88 @@
     document.getElementById("dot").className = "dot no";
     document.getElementById("salud-txt").textContent = "backend no disponible";
   });
+
+  // Carga la lista de casos y construye el panel de validación.
+  fetch("/api/casos").then(r => r.json()).then(d => {
+    const casos = (d && d.casos) || [];
+    if (!casos.length) return;
+    panelCasos.hidden = false;
+    const validados = leerValidados();
+    casos.forEach(caso => crearFila(caso, validados.has(caso)));
+    actualizarResumen();
+  }).catch(() => {});
+
+  function crearFila(caso, yaValidado) {
+    const el = document.createElement("div");
+    el.className = "caso" + (yaValidado ? " validado" : "");
+    el.innerHTML = `
+      <span class="estado"></span>
+      <span class="nombre">${caso}</span>
+      ${yaValidado ? '<span class="check">✓</span>' : ""}
+      <span class="acciones"></span>`;
+    const acciones = el.querySelector(".acciones");
+    const btnValidar = document.createElement("button");
+    btnValidar.className = yaValidado ? "revalidar" : "validar";
+    btnValidar.textContent = yaValidado ? "Revalidar" : "Validar";
+    btnValidar.onclick = () => validarCaso(caso);
+    const btnCancelar = document.createElement("button");
+    btnCancelar.className = "cancelar";
+    btnCancelar.textContent = "Cancelar";
+    btnCancelar.hidden = true;
+    btnCancelar.onclick = () => cancelarValidacion();
+    acciones.append(btnValidar, btnCancelar);
+    listaCasos.appendChild(el);
+    filas.set(caso, { el, btnValidar, btnCancelar });
+  }
+
+  function actualizarResumen() {
+    const total = filas.size;
+    const hechos = [...filas.values()].filter(f => f.el.classList.contains("validado")).length;
+    const faltan = [...filas.entries()].filter(([, f]) => !f.el.classList.contains("validado")).map(([c]) => c);
+    resumenCasos.textContent = faltan.length
+      ? `${hechos}/${total} validados · faltan: ${faltan.join(", ")}`
+      : `${hechos}/${total} validados · ¡todos los casos validados! ✓`;
+  }
+
+  function validarCaso(caso) {
+    if (peticionActiva) return; // una validación a la vez
+    const f = filas.get(caso);
+    f.el.classList.remove("validado", "error");
+    f.el.classList.add("validando");
+    f.el.querySelector(".check")?.remove();
+    f.btnValidar.hidden = true;
+    f.btnCancelar.hidden = false;
+    enviar(`Procesa el caso "${caso}". Dime campos llenos, faltantes, si está listo para firma y qué soportes actualizar. No envíes nada todavía.`, { caso });
+  }
+
+  function cancelarValidacion() {
+    if (peticionActiva) peticionActiva.abort();
+  }
+
+  function marcarResultado(caso, exito) {
+    const f = filas.get(caso);
+    if (!f) return;
+    f.el.classList.remove("validando");
+    f.btnCancelar.hidden = true;
+    f.btnValidar.hidden = false;
+    const validados = leerValidados();
+    if (exito) {
+      f.el.classList.add("validado");
+      f.btnValidar.className = "revalidar";
+      f.btnValidar.textContent = "Revalidar";
+      if (!f.el.querySelector(".check")) {
+        const check = document.createElement("span");
+        check.className = "check"; check.textContent = "✓";
+        f.el.querySelector(".nombre").after(check);
+      }
+      validados.add(caso);
+    } else {
+      f.el.classList.add("error");
+      validados.delete(caso);
+    }
+    guardarValidados(validados);
+    actualizarResumen();
+  }
 
   function burbuja(texto, clase) {
     const d = document.createElement("div");
@@ -108,7 +241,8 @@
 
   function scroll() { window.scrollTo(0, document.body.scrollHeight); }
 
-  async function enviar(mensaje) {
+  async function enviar(mensaje, opts = {}) {
+    const caso = opts.caso || null;
     burbuja(mensaje, "user");
     input.value = "";
     btn.disabled = true;
@@ -118,11 +252,13 @@
     chat.appendChild(pensando);
     scroll();
 
+    peticionActiva = new AbortController();
     try {
       const r = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ sessionId, message: mensaje }),
+        signal: peticionActiva.signal,
       });
       const d = await r.json();
       pensando.remove();
@@ -136,10 +272,27 @@
         b.prepend(badge);
         agregarAccionesConfirm(b);
       }
+      if (caso) {
+        // Éxito si una herramienta corrió ok sobre ESTE caso (no solo que el modelo respondió).
+        const exito = (d.toolCalls || []).some(t => t.ok && t.args && t.args.caso === caso);
+        marcarResultado(caso, exito);
+      }
     } catch (e) {
       pensando.remove();
-      burbuja("Error de red al hablar con el backend.", "bot");
+      if (e && e.name === "AbortError") {
+        burbuja("Validación cancelada.", "bot");
+        if (caso) {
+          const f = filas.get(caso);
+          f.el.classList.remove("validando");
+          f.btnCancelar.hidden = true;
+          f.btnValidar.hidden = false;
+        }
+      } else {
+        burbuja("Error de red al hablar con el backend.", "bot");
+        if (caso) marcarResultado(caso, false);
+      }
     } finally {
+      peticionActiva = null;
       btn.disabled = false;
       input.focus();
     }

@@ -1,7 +1,7 @@
 // API HTTP del chat y arranque del ciclo del agente. Sirve también el front estático.
 // Un solo proceso levanta front + backend (PRD §8).
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
@@ -30,6 +30,20 @@ app.get("/", (c) => c.html(readFileSync(join(DIRECTORY, "web", "index.html"), "u
 app.get("/api/health", (c) =>
   c.json({ ok: true, provider: cfg.proveedor, model: cfg.modelo }),
 );
+
+// Lista los casos disponibles en los fixtures (para el panel de validación del front).
+app.get("/api/casos", (c) => {
+  try {
+    const dir = join(DIRECTORY, "fixtures", "reto-01", "casos");
+    const casos = readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+    return c.json({ ok: true, casos });
+  } catch {
+    return c.json({ ok: false, casos: [] as string[] });
+  }
+});
 
 app.get("/api/sessions/:id", (c) => {
   const sesion = obtener(c.req.param("id"));
