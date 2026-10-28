@@ -9,8 +9,9 @@ Reto técnico 01 · Perxia 2.0 · Periferia IT Group.
 
 ## Requisitos
 
-- **Node 20+** (probado en Node 24). Opcionalmente **Bun**. No requiere paso de build:
-  el TypeScript se ejecuta directamente.
+- **Node 22.6+** (recomendado 24; probado en Node 24) o **Bun**. El TypeScript se
+  ejecuta directamente, sin paso de build. Node 24 corre `.ts` de forma nativa; en
+  22.6–23.5 se requiere el flag `--experimental-strip-types`.
 
 ## Levantar en local (un comando)
 
@@ -90,7 +91,18 @@ fixtures/reto-01/               insumos entregados (solo lectura)
 out/                            artefactos generados
 ```
 
+## Despliegue (link público)
+
+El repositorio incluye `render.yaml` para desplegar en [Render](https://render.com):
+
+1. Entra a Render → **New** → **Web Service** → conecta el repo `JuanPM11/repo-periferia`.
+2. Render detecta `render.yaml`. Deja `buildCommand: npm install` y `startCommand: npm start`.
+3. En **Environment**, agrega `ANTHROPIC_API_KEY` con tu clave (las demás vienen del blueprint).
+4. Deploy. Render asigna una URL pública; el servidor lee `PORT` automáticamente.
+
+Equivalente en Railway/Fly.io: mismo build/start y la misma variable de entorno.
+
 ## Link de prueba
 
-> Pendiente de despliegue público. Mientras tanto se corre en local con los comandos de
-> arriba. (Si se despliega, la URL va aquí.)
+> URL pública: _(pegar aquí tras el deploy)_. Mientras tanto, corre en local con los
+> comandos de arriba.
