@@ -108,13 +108,19 @@ function truncar(s: string, max = 180): string {
 
 /**
  * Señala si el agente está pidiendo confirmación para que el front lo resalte (CA3).
- * Heurística: el envío fue rechazado por falta de confirmación, o la respuesta final
- * pregunta explícitamente por confirmar/enviar/firmar.
+ * Solo cuando hay una acción externa *pendiente*: el envío fue rechazado por falta de
+ * confirmación, o la respuesta final hace una pregunta explícita de enviar/firmar.
+ * Si el envío ya se ejecutó con éxito en este turno, no hay nada pendiente: evita que
+ * un resumen que apenas menciona "confirmación" reabra los botones y cree un loop.
  */
 function pideConfirmacion(reply: string, toolCalls: LlamadaVisible[]): boolean {
+  const envioHecho = toolCalls.some((t) => t.nombre === "proveedor_simular_envio" && t.ok);
+  if (envioHecho) return false;
   const rechazado = toolCalls.some(
     (t) => t.nombre === "proveedor_simular_envio" && !t.ok && /confirm/i.test(t.resumen),
   );
-  const preguntaConfirm = /confirm/i.test(reply) || /¿[^?]*\b(env[ií]|firm)/i.test(reply);
+  // Pregunta de confirmación real: un "¿…?" que menciona enviar/firmar/confirmar,
+  // no una simple mención de la palabra en el cuerpo del resumen.
+  const preguntaConfirm = /¿[^?]*\b(env[ií]|firm|confirm)/i.test(reply);
   return rechazado || preguntaConfirm;
 }
