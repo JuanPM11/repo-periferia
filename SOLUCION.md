@@ -112,6 +112,22 @@ para copiar. Cómo lo abordaría en producción:
    un dato equivocado. Trade-off: etiquetas no listadas en el glosario quedan como
    `faltante` (conservador y explicable) en vez de arriesgar un mapeo dudoso.
 
+### Dependencias (justificación, requisito §8)
+
+Mínimas y de propósito único; nada de frameworks pesados ni paso de build.
+
+| Dependencia | Para qué | Por qué esta |
+|-------------|----------|--------------|
+| `zod` | Esquemas y validación de los argumentos de cada herramienta. | **Obligatoria por el PRD**; valida la entrada del modelo antes de ejecutar y genera el JSON Schema que ve el LLM. |
+| `hono` + `@hono/node-server` | Servidor HTTP del chat (`/api/chat`, `/api/health`, estáticos). | Router minúsculo y tipado; un solo proceso sirve front y API sin configuración. Alternativa (Express) pesa más y tipa peor. |
+| `exceljs` | Escribir `formulario.xlsx` en la hoja y celda exactas (HU-3 P0). | Permite direccionar celdas por referencia (`hoja!celda`), que es justo lo que pide `plantilla-celdas.json`. |
+| `pdfkit` | Generar `formulario.pdf` con etiqueta+valor en orden (HU-3 P1). | Genera PDF por streaming sin binarios nativos ni headless browser. |
+| `@anthropic-ai/sdk` | Implementación del adaptador LLM (Anthropic). | SDK oficial; aislado tras `src/llm/adapter.ts`, cambiar de proveedor no toca el ciclo. |
+
+Sin dependencias de runtime para el front (HTML plano) ni de build (TypeScript se
+ejecuta nativo en Node 24). Las `devDependencies` son solo de tipado y chequeo
+(`typescript` para `tsc --noEmit`, más `@types/node` y `@types/pdfkit`); no hay bundler.
+
 ## 7. Supuestos
 
 - Los fixtures entregados venían en la raíz (`casos/`, `repositorio/`,
