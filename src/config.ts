@@ -25,7 +25,9 @@ export function cargarConfig(): Config {
   return {
     proveedor: process.env.LLM_PROVIDER ?? "anthropic",
     modelo: process.env.LLM_MODEL ?? "claude-haiku-5-5",
-    apiKey: process.env.ANTHROPIC_API_KEY ?? "",
+    // trim: tolera espacios o saltos de línea accidentales al pegar la clave
+    // (un valor con \n es un header HTTP inválido).
+    apiKey: (process.env.ANTHROPIC_API_KEY ?? "").trim(),
     maxIteraciones: numeroEnv("MAX_ITERACIONES", 25),
     maxTokensSesion: numeroEnv("MAX_TOKENS_SESION", 120_000),
     puerto: numeroEnv("PORT", 3000),
