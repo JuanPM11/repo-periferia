@@ -57,6 +57,9 @@ export class AdaptadorAnthropic implements AdaptadorLLM {
         tokens: respuesta.usage.input_tokens + respuesta.usage.output_tokens,
       };
     } catch (e) {
+      // Visibilidad en el servidor (no se expone al cliente): causa real de la falla.
+      const causa = e instanceof Error && "cause" in e ? (e as { cause?: unknown }).cause : undefined;
+      console.error("[LLM] fallo al llamar al proveedor:", e instanceof Error ? e.message : e, causa ?? "");
       throw new ErrorProveedor(mensajeError(e));
     }
   }

@@ -10,6 +10,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "24"
+      - key: NODE_OPTIONS
+        value: --dns-result-order=ipv4first
       - key: LLM_PROVIDER
         value: anthropic
       - key: LLM_MODEL
